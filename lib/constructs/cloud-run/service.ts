@@ -11,9 +11,11 @@ import {
   ServiceAccount,
 } from '@cdktf/provider-google/lib/service-account';
 import {Construct} from 'constructs';
+import {Cpu} from './cpu';
+import {Memory} from './memory';
 
 /**
- * The properties to create the cloud run service using this wrapper
+ * The properties to create the cloud run service using this wrapper.
  */
 export interface CloudRunServiceWrapperProps extends Omit<
   CloudRunServiceConfig, 'template' | 'location'
@@ -28,7 +30,7 @@ export interface CloudRunServiceWrapperProps extends Omit<
   cmd?: string[];
   /**
    * Overrides the container's default entrypoint. If unspecified it will use
-   * the image's default
+   * the image's default.
    *
    * @default undefined
    */
@@ -93,6 +95,23 @@ export interface CloudRunServiceWrapperProps extends Omit<
    * The service account that will run this container
    */
   serviceAccount: ServiceAccount;
+  /**
+   * The Vpc Access Connector Id that point to the serverless access connector
+   * that the service will use.
+   */
+  vpcAccessConnectorId?: string;
+  /**
+   * The memory to allocate to the service.
+   *
+   * @default Memory.megabytes(512)
+   */
+  memory?: Memory;
+  /**
+   * The amount of CPU to allocate to the service
+   *
+   * @default Cpu.m(1000)
+   */
+  cpu?: Cpu;
 }
 
 /**
@@ -100,6 +119,9 @@ export interface CloudRunServiceWrapperProps extends Omit<
  * lot that goes into the spec, but this makes it easier to develop quickly
  * without having to remember how to construct the JSON container specs or
  * template metadata/annotations.
+ *
+ * Here is the full yaml reference:
+ * @see https://cloud.google.com/run/docs/reference/yaml/v1
  */
 export class CloudRunServiceWrapper extends CloudRunService {
   /**
@@ -116,6 +138,8 @@ export class CloudRunServiceWrapper extends CloudRunService {
     // Scaling validation and annotations
     const minScale = props.minScale ?? 0;
     const maxScale = props.maxScale ?? -1;
+    const memory = (props.memory ?? Memory.megabytes(512)).toString();
+    const cpu = (props.cpu ?? Cpu.m(1000)).toString();
     if (maxScale > 0 && maxScale < minScale) {
       throw new Error(
           'maxScale must be larger than minScale if specified ' +
@@ -128,7 +152,11 @@ export class CloudRunServiceWrapper extends CloudRunService {
     if (maxScale > -1) {
       annotations['autoscaling.knative.dev/maxScale'] = `${maxScale}`;
     }
-
+    if (props.vpcAccessConnectorId) {
+      annotations['run.googleapis.com/vpc-access-connector'] =
+        props.vpcAccessConnectorId;
+      annotations['run.googleapis.com/vpc-access-egress'] = 'all-traffic';
+    }
     // Mounting secrets as attached volumes for real-time and read-only
     // secret synchronization
     const volumes: CloudRunServiceTemplateSpecVolumes[] = [];
@@ -173,6 +201,7 @@ export class CloudRunServiceWrapper extends CloudRunService {
             image: `${props.registryPath}/${props.imageName}:${props.imageTag}`,
             command: props.entrypoint,
             args: props.cmd,
+            resources: {limits: {memory, cpu}, requests: {memory, cpu}},
             ports: props.ports.map((port) => {
               return {
                 containerPort: port,

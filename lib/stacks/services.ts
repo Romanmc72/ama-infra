@@ -1,6 +1,7 @@
 import {ProjectService} from '@cdktf/provider-google/lib/project-service';
 import {Construct} from 'constructs';
 import {BaseGCPStack, BaseGCPStackProps} from '../constructs';
+import {DeploymentEnvironment} from '../config';
 
 export interface ServiceStackProps extends BaseGCPStackProps {}
 
@@ -16,20 +17,28 @@ export interface ServiceStackProps extends BaseGCPStackProps {}
  */
 export class ServicesStack extends BaseGCPStack {
   /**
-   * Creates the stack
-   * @param {Construct} scope - the app in which this stack lives
-   * @param {string} id - the unique id for this stack
-   * @param {ServiceStackProps} props - the pros to create the stack
+   * Creates the stack.
+   * @param {Construct} scope - The app in which this stack lives.
+   * @param {DeploymentEnvironment} env - TYhe environment this stack
+   * will deploy to.
+   * @param {ServiceStackProps} props - The pros to create the stack.
    */
-  constructor(scope: Construct, id: string, props: ServiceStackProps) {
-    super(scope, id, props);
+  constructor(
+      scope: Construct,
+      env: DeploymentEnvironment,
+      props: ServiceStackProps,
+  ) {
+    super(scope, 'services', env.name, props);
     // storage, iam, and kms are already enabled in the terraform-state stack
     const servicesToEnable = [
       'artifactregistry',
       'bigquery',
       'cloudfunctions',
+      'compute',
+      'dns',
       'eventarc',
       'firestore',
+      'firebase',
       'logging',
       'pubsub',
       // Cloud Run

@@ -55,11 +55,18 @@ export class BaseGCPStack extends TerraformStack implements IBaseGCPStack {
   /**
    * This is the constructor for the base GCP stack
    * @param {Construct} scope - The app within which this stack will be created
-   * @param {string} id - The unique ID for this stack
+   * @param {string} stackName - The name for this stack
+   * @param {string} envName - The name for the environment
    * @param {BaseGCPStackProps} props - The properties required to initialize
    * any GCP Stack
    */
-  constructor(scope: Construct, id: string, props: BaseGCPStackProps) {
+  constructor(
+      scope: Construct,
+      stackName: string,
+      envName: string,
+      props: BaseGCPStackProps,
+  ) {
+    const id = `${stackName}-${envName}-${props.region}`;
     super(scope, id);
     (props.dependsOn ?? []).forEach((stack) => this.addDependency(stack));
     this.provider = new GoogleProvider(this, `${props.projectId}-google`, {

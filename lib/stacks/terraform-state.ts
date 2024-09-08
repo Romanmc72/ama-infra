@@ -2,6 +2,7 @@ import {TerraformStack} from 'cdktf';
 import {GoogleProvider} from '@cdktf/provider-google/lib/provider';
 import {ProjectService} from '@cdktf/provider-google/lib/project-service';
 import {Construct} from 'constructs';
+import {DeploymentEnvironment} from '../config/environments';
 import {
   BaseGCPStackProps,
   getBackendBucketName,
@@ -24,14 +25,15 @@ export class TerraformStateBucketStack extends TerraformStack {
    * The terraform state bucket stack. It needs to be the first stack
    * initialized otherwise nothing else will work.
    * @param {Construct} scope
-   * @param {string} id
+   * @param {DeploymentEnvironment} env
    * @param {TerraformStateBucketStackProps} props
    */
   constructor(
       scope: Construct,
-      id: string,
+      env: DeploymentEnvironment,
       props: TerraformStateBucketStackProps,
   ) {
+    const id = `terraform-state-${env.name}`;
     super(scope, id);
     new GoogleProvider(this, 'google', {
       project: props.projectId,

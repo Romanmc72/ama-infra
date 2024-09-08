@@ -1,11 +1,20 @@
-import {Construct} from 'constructs';
 import {
   ArtifactRegistryRepository,
 } from '@cdktf/provider-google/lib/artifact-registry-repository';
 import {
+  ArtifactRegistryRepositoryIamMember,
+} from '@cdktf/provider-google/lib/artifact-registry-repository-iam-member';
+import {ServiceAccount} from '@cdktf/provider-google/lib/service-account';
+import {
+  ServiceAccountIamBinding,
+} from '@cdktf/provider-google/lib/service-account-iam-binding';
+import {Construct} from 'constructs';
+
+import {
   BaseGCPStack,
   BaseGCPStackProps,
 } from '../constructs';
+import {DeploymentEnvironment} from '../config';
 
 /**
  * The list of available formats, the Terraform and GCP Providers do not give
@@ -40,15 +49,18 @@ interface RegistrySettings {
   format?: RegistryFormat;
 }
 
+/** The names of registries that exist in the project. */
+export enum RegistryName {
+  AMA_API = 'ama-api',
+}
+
 /**
  * The list of registry names that should exist.
  * If adding new registries do so here.
  */
-export const REGISTRIES: {[name: string]: RegistrySettings} = {
-  'crappy-server': {description: 'A crappy nginx server'},
+export const REGISTRIES: {[name in RegistryName]: RegistrySettings} = {
+  [RegistryName.AMA_API]: {description: 'The API for the ask me anything app.'},
 };
-
-export const REGISTRY_NAMES = Object.keys(REGISTRIES);
 
 /**
  * The mapping of registry names to registries
@@ -68,16 +80,39 @@ export class ContainerRegistryStack extends BaseGCPStack {
   private registries: RegistryMapping = {};
 
   /**
-   * The constructor that initializes this stack
-   * @param {Construct} scope - The App within which this stack lives
-   * @param {string} id - The identifier for this database stack
+   * The constructor that initializes this stack.
+   * @param {Construct} scope - The App within which this stack lives.
+   * @param {DeploymentEnvironment} env - The environment the stack will
+   * deploy to.
    * @param {BaseGCPStackProps} props - The properties specifically for this
-   * database stack
+   * database stack.
    */
-  constructor(scope: Construct, id: string, props: BaseGCPStackProps) {
-    super(scope, id, props);
-    REGISTRY_NAMES.forEach((registryName: string) =>
-      this.registryFactory(registryName, REGISTRIES[registryName]),
+  constructor(
+      scope: Construct,
+      env: DeploymentEnvironment,
+      props: BaseGCPStackProps,
+  ) {
+    super(scope, 'container-registry', env.name, props);
+    const imagePushServiceAccount = new ServiceAccount(
+        this,
+        'push-image-service-account',
+        {
+          accountId: 'image-push',
+          description: 'Allows users to impersonate it and ' +
+          'push images to the Artifact Registry',
+        },
+    );
+    new ServiceAccountIamBinding(this, 'allow-r0m4n-assume', {
+      members: ['domain:r0m4n.com'],
+      role: 'roles/iam.serviceAccountTokenCreator',
+      serviceAccountId: imagePushServiceAccount.name,
+    });
+    Object.entries(REGISTRIES).forEach(([registryName, description]) =>
+      this.registryFactory(
+          registryName,
+          description,
+          imagePushServiceAccount,
+      ),
     );
   }
 
@@ -86,10 +121,16 @@ export class ContainerRegistryStack extends BaseGCPStack {
    * to the internal registry mapping
    * @param {string} name - The name of the registry
    * @param {RegistrySettings} settings - The registry settings object
+   * @param {ServiceAccount} pushServiceAccount -The service account that can
+   * write to the registry
    * @return {void}
    */
-  private registryFactory(name: string, settings: RegistrySettings): void {
-    this.registries[name] = new ArtifactRegistryRepository(
+  private registryFactory(
+      name: string,
+      settings: RegistrySettings,
+      pushServiceAccount: ServiceAccount,
+  ): void {
+    const registry = new ArtifactRegistryRepository(
         this,
         `${name}-registry`,
         {
@@ -100,14 +141,22 @@ export class ContainerRegistryStack extends BaseGCPStack {
           repositoryId: name,
         },
     );
+    this.registries[name] = registry;
+    new ArtifactRegistryRepositoryIamMember(this, `push-permissions-${name}`, {
+      project: this.provider.project,
+      location: registry.location,
+      repository: registry.name,
+      role: 'roles/artifactregistry.writer',
+      member: `serviceAccount:${pushServiceAccount.email}`,
+    });
   }
 
   /**
    * Method for fetching a given registry by name
-   * @param {string} name - The name of the registry to get
+   * @param {RegistryName} name - The name of the registry to get
    * @return {string}- The registry path
    */
-  public getRegistryPath(name: string): string {
+  public getRegistryPath(name: RegistryName): string {
     const registry = this.registries[name];
     if (registry) {
       return `${registry.location}-docker.pkg.dev/` +

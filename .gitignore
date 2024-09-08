@@ -3,7 +3,8 @@
 node_modules
 cdktf.out
 cdktf.log
-*terraform.*.tfstate*
+# We do want to keep the local state for the state buckets themselves
+# *terraform.*.tfstate*
 .gen
 .terraform
 tsconfig.tsbuildinfo

@@ -70,6 +70,7 @@ export class SecureBucket extends StorageBucket {
       });
       kmsKey = new KmsCryptoKey(scope, kmsKeyName, {
         name: kmsKeyName,
+        // Rotate after one year
         rotationPeriod: `${86400 * 365}s`,
         keyRing: keyRing.id,
       });

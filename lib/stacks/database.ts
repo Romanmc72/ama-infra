@@ -5,6 +5,7 @@ import {
   BaseGCPStackProps,
 } from '../constructs';
 import {ProjectService} from '@cdktf/provider-google/lib/project-service';
+import {DeploymentEnvironment} from '../config';
 
 /**
  * The properties to initialize the database stack
@@ -28,14 +29,19 @@ export class DatabaseStack extends BaseGCPStack {
   public readonly database: FirestoreDatabase;
 
   /**
-   * The constructor that initializes this stack
-   * @param {Construct} scope - The App within which this stack lives
-   * @param {string} id - The identifier for this database stack
+   * The constructor that initializes this stack.
+   * @param {Construct} scope - The App within which this stack lives.
+   * @param {DeploymentEnvironment} env - The environment this stack will
+   * deploy to.
    * @param {DatabaseStackProps} props - The properties specifically for this
-   * database stack
+   * database stack.
    */
-  constructor(scope: Construct, id: string, props: DatabaseStackProps) {
-    super(scope, id, props);
+  constructor(
+      scope: Construct,
+      env: DeploymentEnvironment,
+      props: DatabaseStackProps,
+  ) {
+    super(scope, 'database', env.name, props);
     const firestore = new ProjectService(this, 'firestore-service', {
       project: props.projectId,
       service: 'firestore.googleapis.com',
