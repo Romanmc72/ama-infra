@@ -4,7 +4,6 @@ import {
   CloudRunStack,
   ContainerRegistryStack,
   DatabaseStack,
-  // NetworkingStack,
   RegistryName,
   ServicesStack,
   TerraformStateBucketStack,
