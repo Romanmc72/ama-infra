@@ -40,7 +40,6 @@ export function deployEnvironment(
       environment,
       baseStackProps,
   );
-  // new NetworkingStack(app, environment, baseStackProps);
   new CloudRunStack(app, environment, {
     ...baseStackProps,
     registryPath: registry.getRegistryPath(RegistryName.AMA_API),
